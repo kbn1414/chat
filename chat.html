@@ -122,26 +122,18 @@
             try {
                 const response = await fetch(API_URL, {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        text: text,
-                        sessionId: "test"
-                    })
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text })
                 });
 
                 const data = await response.json();
-
                 if (data?.message?.content) {
                     aiMsg.textContent = data.message.content;
                 } else {
-                    aiMsg.textContent = "代理正常，但未连接到AI";
+                    aiMsg.textContent = "未收到有效回复";
                 }
-
             } catch (error) {
-                console.error(error);
-                aiMsg.textContent = "连接成功，但解析失败：" + error.message;
+                aiMsg.textContent = "连接失败：" + error.message;
             } finally {
                 sendBtn.disabled = false;
             }
