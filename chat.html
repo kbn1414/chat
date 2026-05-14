@@ -1,21 +1,206 @@
 <!DOCTYPE html>
-<html>
-<body>
-  <input id="input" />
-  <button onclick="send()">发送</button>
-  <div id="output"></div>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 对话助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
 
-  <script>
-    async function send() {
-      const text = document.getElementById('input').value;
-      const res = await fetch('https://express-ai-sdk-two-puce.vercel.app/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
-      });
-      const data = await res.json();
-      document.getElementById('output').textContent = data.content;
-    }
-  </script>
+        body {
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .chat-container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: #007bff;
+            color: white;
+            padding: 16px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            line-height: 1.5;
+            font-size: 15px;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background: #007bff;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai-message {
+            background: white;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .loading {
+            color: #999;
+            font-style: italic;
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #eee;
+            background: white;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 24px;
+            outline: none;
+            font-size: 15px;
+            transition: border-color 0.2s;
+        }
+
+        #messageInput:focus {
+            border-color: #007bff;
+        }
+
+        #sendButton {
+            margin-left: 10px;
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: background 0.2s;
+        }
+
+        #sendButton:disabled {
+            background: #6ab7ff;
+            cursor: not-allowed;
+        }
+
+        #sendButton:hover:not(:disabled) {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">AI 智能助手</div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input">
+            <input type="text" id="messageInput" placeholder="输入你的问题...">
+            <button id="sendButton">发送</button>
+        </div>
+    </div>
+
+    <script>
+        // 替换成你的代理地址
+        const API_URL = "https://express-ai-sdk-two-puce.vercel.app/api/chat";
+
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        // 添加消息到聊天框
+        function addMessage(content, isUser = false, isLoading = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'} ${isLoading ? 'loading' : ''}`;
+            messageDiv.textContent = content;
+            chatMessages.appendChild(messageDiv);
+            // 自动滚动到底部
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return messageDiv;
+        }
+
+        // 发送消息
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || sendButton.disabled) return;
+
+            // 添加用户消息
+            addMessage(text, true);
+            messageInput.value = '';
+            sendButton.disabled = true;
+
+            // 添加加载消息
+            const loadingMessage = addMessage('正在思考...', false, true);
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`请求失败: ${response.status}`);
+                }
+
+                const data = await response.json();
+                // 替换加载消息为真实回复
+                loadingMessage.textContent = data.content;
+                loadingMessage.classList.remove('loading');
+
+            } catch (error) {
+                loadingMessage.textContent = '❌ 连接失败，请稍后重试';
+                loadingMessage.classList.remove('loading');
+                console.error('发送消息错误:', error);
+            } finally {
+                sendButton.disabled = false;
+                messageInput.focus();
+            }
+        }
+
+        // 绑定事件
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // 欢迎消息
+        addMessage('你好！我是 AI 智能助手，有什么可以帮你的吗？', false);
+
+        // 自动聚焦输入框
+        messageInput.focus();
+    </script>
 </body>
 </html>
