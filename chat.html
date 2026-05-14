@@ -95,7 +95,6 @@
     </div>
 
     <script>
-        // 你的代理接口地址，保持不变
         const API_URL = "https://express-ai-sdk-two-puce.vercel.app/api/chat";
 
         const msgBox = document.getElementById("msgBox");
@@ -128,50 +127,21 @@
                     },
                     body: JSON.stringify({
                         text: text,
-                        sessionId: "user_session_" + Date.now()
+                        sessionId: "test"
                     })
                 });
 
-                if (!response.ok) throw new Error("请求失败：" + response.status);
+                const data = await response.json();
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let fullText = "";
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split("\n");
-
-                    for (let line of lines) {
-                        line = line.trim();
-                        if (!line || line.startsWith(":")) continue;
-                        if (line.startsWith("data: ")) {
-                            const jsonStr = line.replace("data: ", "");
-                            try {
-                                const data = JSON.parse(jsonStr);
-                                // 适配 Coze 流式返回的格式
-                                if (data?.message?.content) {
-                                    fullText += data.message.content;
-                                    aiMsg.textContent = fullText;
-                                    msgBox.scrollTop = msgBox.scrollHeight;
-                                }
-                            } catch (e) {
-                                console.log("解析失败:", jsonStr);
-                            }
-                        }
-                    }
-                }
-
-                if (!fullText) {
-                    aiMsg.textContent = "AI 未返回有效回复";
+                if (data?.message?.content) {
+                    aiMsg.textContent = data.message.content;
+                } else {
+                    aiMsg.textContent = "代理正常，但未连接到AI";
                 }
 
             } catch (error) {
                 console.error(error);
-                aiMsg.textContent = "连接失败：" + error.message;
+                aiMsg.textContent = "连接成功，但解析失败：" + error.message;
             } finally {
                 sendBtn.disabled = false;
             }
