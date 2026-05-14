@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 对话助手</title>
-    <!-- 新增：KaTeX 公式渲染依赖（唯一新增的外部资源） -->
+    <!-- KaTeX 公式渲染 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
@@ -136,83 +136,82 @@
     </div>
 
     <script>
-        // 替换成你的代理地址
-        const API_URL = "https://express-ai-sdk-two-puce.vercel.app/api/chat";
+        // ========== 直接前端配置，不用后端 ==========
+        const COZE_TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImIzYjhkYTRlLWYwMzktNGE2ZS1iNjhmLTdiZjAzMjE0YzMwNyJ9.eyJpc3MiOiJodHRwczovL2FwaS5jb3plLmNuIiwiYXVkIjpbImt5cXNiS2swV3BucmE3UjY5bjAxWjR4ZmRqSlRMa3Z5Il0sImV4cCI6ODIxMDI2Njg3Njc5OSwiaWF0IjoxNzc4NzM2NDYxLCJzdWIiOiJzcGlmZmU6Ly9hcGkuY296ZS5jbi93b3JrbG9hZF9pZGVudGl0eS9pZDo3NjM2MzMyMTcwNjkyMjYzOTc4Iiwic3JjIjoiaW5ib3VuZF9hdXRoX2FjY2Vzc190b2tlbl9pZDo3NjM5NjE0OTMwNDEyMzcxOTY4In0.aFVgg_DF9GlKt4X_G_-eMo5XXUix_g1IFAtoEJ3MjL4VIZDz7eiy6k19EPxQ4PdRewtJw0d7NXJAi1E4BF7vuqfYGenAhQPx90ttPmxwpBQf5asF5qkV7vIsDLPAmfd_WT_hcPCQOkYxuFrBgElqmzcpFa44LkXTzBDo6p8O_v3PsEW4YD6ElWLfv4-h3JOI7-RAOVpfsJqykAOTX4gr9jeI1_7c6_Axxcnuv10sK77MO9itH0t-0V6iJwEOa8ytdR9lYGCg6liOh978oxyybGX42mdhXazylyI9lQxR-9xxz3Eh6jXtzAQnoCiSM795Mrle367QOg0wMunl0EjGvg";
+        const BOT_ID = "7636326096509665316";
+        const COZE_API = "https://api.coze.cn/open_api/v2/chat";
 
         const chatMessages = document.getElementById('chatMessages');
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
 
-        // 添加消息到聊天框
         function addMessage(content, isUser = false, isLoading = false) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'} ${isLoading ? 'loading' : ''}`;
             messageDiv.textContent = content;
             chatMessages.appendChild(messageDiv);
-            // 自动滚动到底部
             chatMessages.scrollTop = chatMessages.scrollHeight;
             return messageDiv;
         }
 
-        // 发送消息
         async function sendMessage() {
             const text = messageInput.value.trim();
             if (!text || sendButton.disabled) return;
 
-            // 添加用户消息
             addMessage(text, true);
             messageInput.value = '';
             sendButton.disabled = true;
 
-            // 添加加载消息
             const loadingMessage = addMessage('正在思考...', false, true);
 
             try {
-                const response = await fetch(API_URL, {
+                const res = await fetch(COZE_API, {
                     method: 'POST',
                     headers: {
+                        'Authorization': `Bearer ${COZE_TOKEN}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ text })
+                    body: JSON.stringify({
+                        bot_id: BOT_ID,
+                        user_id: "user_001",
+                        query: text,
+                        stream: false
+                    })
                 });
 
-                if (!response.ok) {
-                    throw new Error(`请求失败: ${response.status}`);
+                const data = await res.json();
+                let reply = "暂无回复";
+                if (data.messages && data.messages.length > 0) {
+                    reply = data.messages[0].content;
                 }
 
-                const data = await response.json();
-                // 核心修改：支持 LaTeX 公式渲染
-                loadingMessage.innerHTML = data.content; 
+                // 渲染LaTeX公式
+                loadingMessage.innerHTML = reply;
                 loadingMessage.classList.remove('loading');
-                // 渲染公式
                 renderMathInElement(loadingMessage, {
                     delimiters: [
-                        { left: "$", right: "$", display: false },   // 行内公式
-                        { left: "$$", right: "$$", display: true }  // 块级公式
+                        { left: "$", right: "$", display: false },
+                        { left: "$$", right: "$$", display: true }
                     ],
                     throwOnError: false
                 });
 
-            } catch (error) {
-                loadingMessage.textContent = '❌ 连接失败，请稍后重试';
+            } catch (err) {
+                loadingMessage.textContent = '❌ 请求失败';
                 loadingMessage.classList.remove('loading');
-                console.error('发送消息错误:', error);
+                console.error(err);
             } finally {
                 sendButton.disabled = false;
                 messageInput.focus();
             }
         }
 
-        // 绑定事件
         sendButton.addEventListener('click', sendMessage);
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
 
-        // 欢迎消息
         addMessage('你好！我是 AI 智能助手，有什么可以帮你的吗？', false);
-
-        // 自动聚焦输入框
         messageInput.focus();
     </script>
 </body>
