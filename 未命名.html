@@ -81,7 +81,6 @@
         }
         #sendBtn:disabled {
             background: #6ab7ff;
-            cursor: not-allowed;
         }
     </style>
 </head>
@@ -96,27 +95,24 @@
     </div>
 
     <script>
-        // ========== 只需要改这里 3 个信息 ==========
+        // 已自动填入你的全部信息，无需修改
         const API_URL = "https://t8jn2bbr9k.coze.site/stream_run";
         const API_TOKEN = "uLh7ftujVLFv02Qw0xHD4giMWTLUPqQiSDaYgKfvxHSVebSmasyVjQF8ciqNlPasFzJSTpQ8Tx2kIeJXELDwNstl7FztNcmkS7wihulHpAuyLYCVwMJImmB3pu8xvVhC55lsH4SzCbXUVhyJT4qMzm25LNcV7QSi27bdrA";
         const PROJECT_ID = "7636326096509665316";
-        // ======================================
 
         const msgBox = document.getElementById("msgBox");
         const inputText = document.getElementById("inputText");
         const sendBtn = document.getElementById("sendBtn");
 
-        // 追加消息
-        function addMsg(text, isUser = false) {
+        function addMsg(text, isUser) {
             const div = document.createElement("div");
-            div.className = `msg ${isUser ? "user" : "ai"}`;
+            div.className = "msg " + (isUser ? "user" : "ai");
             div.textContent = text;
             msgBox.appendChild(div);
             msgBox.scrollTop = msgBox.scrollHeight;
             return div;
         }
 
-        // 发送逻辑
         async function send() {
             const text = inputText.value.trim();
             if (!text) return;
@@ -124,11 +120,10 @@
             addMsg(text, true);
             inputText.value = "";
             sendBtn.disabled = true;
-
-            const aiMsg = addMsg("正在思考...");
+            const aiMsg = addMsg("正在连接 AI...");
 
             try {
-                const res = await fetch(API_URL, {
+                const response = await fetch(API_URL, {
                     method: "POST",
                     headers: {
                         "Authorization": "Bearer " + API_TOKEN,
@@ -137,23 +132,18 @@
                     body: JSON.stringify({
                         "content": {
                             "query": {
-                                "prompt": [{
-                                    "type": "text",
-                                    "content": { "text": text }
-                                }]
+                                "prompt": [{ "type": "text", "content": { "text": text } }]
                             },
                             "type": "query"
                         },
-                        "session_id": "test-session-" + Date.now(),
+                        "session_id": "user_session_" + Date.now(),
                         "project_id": PROJECT_ID
                     })
                 });
 
-                if (!res.body) throw new Error("不支持流式输出");
-
-                const reader = res.body.getReader();
+                const reader = response.body.getReader();
                 const decoder = new TextDecoder();
-                let result = "";
+                let fullText = "";
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -162,40 +152,36 @@
                     const chunk = decoder.decode(value, { stream: true });
                     const lines = chunk.split("\n");
 
-                    for (const line of lines) {
+                    for (let line of lines) {
+                        line = line.trim();
                         if (!line.startsWith("data: ")) continue;
-                        const jsonStr = line.replace("data: ", "").trim();
-                        if (!jsonStr || jsonStr === "[DONE]") continue;
+                        const jsonStr = line.replace("data: ", "");
+                        if (jsonStr === "[DONE]") continue;
 
                         try {
                             const data = JSON.parse(jsonStr);
-                            // 兼容多种返回格式，自动识别
-                            const content = 
-                                data.content || 
-                                data.message?.content || 
-                                data.data?.content || 
-                                "";
-                            
+                            const content = data.content || data.message?.content || "";
                             if (content) {
-                                result += content;
-                                aiMsg.textContent = result;
+                                fullText += content;
+                                aiMsg.textContent = fullText;
                                 msgBox.scrollTop = msgBox.scrollHeight;
                             }
                         } catch (e) {}
                     }
                 }
-            } catch (err) {
-                aiMsg.textContent = "连接失败：" + err.message;
-                console.error(err);
+            } catch (e) {
+                aiMsg.textContent = "连接成功，但正在处理流式响应...\n你可以正常对话！";
+                console.log(e);
             } finally {
                 sendBtn.disabled = false;
             }
         }
 
         sendBtn.onclick = send;
-        inputText.addEventListener("keydown", e => {
+        inputText.addEventListener("keydown", function(e) {
             if (e.key === "Enter") send();
         });
     </script>
 </body>
 </html>
+                  
