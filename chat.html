@@ -95,10 +95,8 @@
     </div>
 
     <script>
-        // 已自动填入你的全部信息，无需修改
+        // 你的代理接口地址，保持不变
         const API_URL = "https://express-ai-sdk-two-puce.vercel.app/api/chat";
-        const API_TOKEN = "uLh7ftujVLFv02Qw0xHD4giMWTLUPqQiSDaYgKfvxHSVebSmasyVjQF8ciqNlPasFzJSTpQ8Tx2kIeJXELDwNstl7FztNcmkS7wihulHpAuyLYCVwMJImmB3pu8xvVhC55lsH4SzCbXUVhyJT4qMzm25LNcV7QSi27bdrA";
-        const PROJECT_ID = "7636326096509665316";
 
         const msgBox = document.getElementById("msgBox");
         const inputText = document.getElementById("inputText");
@@ -120,26 +118,21 @@
             addMsg(text, true);
             inputText.value = "";
             sendBtn.disabled = true;
-            const aiMsg = addMsg("正在连接 AI...");
+            const aiMsg = addMsg("正在回复...", false);
 
             try {
                 const response = await fetch(API_URL, {
                     method: "POST",
                     headers: {
-                        "Authorization": "Bearer " + API_TOKEN,
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        "content": {
-                            "query": {
-                                "prompt": [{ "type": "text", "content": { "text": text } }]
-                            },
-                            "type": "query"
-                        },
-                        "session_id": "user_session_" + Date.now(),
-                        "project_id": PROJECT_ID
+                        text: text,
+                        sessionId: "user_session_" + Date.now()
                     })
                 });
+
+                if (!response.ok) throw new Error("请求失败：" + response.status);
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
@@ -154,34 +147,40 @@
 
                     for (let line of lines) {
                         line = line.trim();
-                        if (!line.startsWith("data: ")) continue;
-                        const jsonStr = line.replace("data: ", "");
-                        if (jsonStr === "[DONE]") continue;
-
-                        try {
-                            const data = JSON.parse(jsonStr);
-                            const content = data.content || data.message?.content || "";
-                            if (content) {
-                                fullText += content;
-                                aiMsg.textContent = fullText;
-                                msgBox.scrollTop = msgBox.scrollHeight;
+                        if (!line || line.startsWith(":")) continue;
+                        if (line.startsWith("data: ")) {
+                            const jsonStr = line.replace("data: ", "");
+                            try {
+                                const data = JSON.parse(jsonStr);
+                                // 适配 Coze 流式返回的格式
+                                if (data?.message?.content) {
+                                    fullText += data.message.content;
+                                    aiMsg.textContent = fullText;
+                                    msgBox.scrollTop = msgBox.scrollHeight;
+                                }
+                            } catch (e) {
+                                console.log("解析失败:", jsonStr);
                             }
-                        } catch (e) {}
+                        }
                     }
                 }
-            } catch (e) {
-                aiMsg.textContent = "连接成功，但正在处理流式响应...\n你可以正常对话！";
-                console.log(e);
+
+                if (!fullText) {
+                    aiMsg.textContent = "AI 未返回有效回复";
+                }
+
+            } catch (error) {
+                console.error(error);
+                aiMsg.textContent = "连接失败：" + error.message;
             } finally {
                 sendBtn.disabled = false;
             }
         }
 
-        sendBtn.onclick = send;
-        inputText.addEventListener("keydown", function(e) {
+        sendBtn.addEventListener("click", send);
+        inputText.addEventListener("keypress", (e) => {
             if (e.key === "Enter") send();
         });
     </script>
 </body>
 </html>
-                  
